@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Mini-Compiler | Syntax Error Detection</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material-darker.min.css">
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>⚙️ C Mini-Compiler</h1>
+            <p>Lexical → Syntax → Semantic Analysis</p>
+        </div>
+        <div class="header-right">
+            <button id="compileBtn" class="compile-btn">
+                <span id="compileBtnText">⚙️ Compile</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left: Code Editor -->
+        <div class="editor-pane">
+            <div class="pane-header">📝 Source Code</div>
+            <div class="editor-wrapper" id="editor"></div>
+        </div>
+
+        <!-- Right: Diagnostics Panel -->
+        <div class="error-pane">
+            <div class="pane-header">🔍 Diagnostics</div>
+            <div class="error-list" id="errorList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">👈</div>
+                    <div class="empty-state-title">Write C code to compile</div>
+                    <div class="empty-state-desc">
+                        Click "Compile" or press <kbd>Ctrl+Enter</kbd> to check for syntax errors
+                    </div>
+                </div>
+            </div>
+            <div class="error-count" id="errorCount">Ready</div>
+        </div>
+    </div>
+
+    <!-- CodeMirror Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/clike.min.js"></script>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>
