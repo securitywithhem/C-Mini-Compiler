@@ -15,6 +15,7 @@ class TokenType(Enum):
     SEPARATOR = auto()
     COMMENT = auto()
     PREPROCESSOR = auto()
+    INVALID_IDENTIFIER = auto()
     UNKNOWN = auto()
 
 

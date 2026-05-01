@@ -283,12 +283,36 @@ int main() {
     ),
 ]
 
+CATEGORY_F: list[TestCase] = [
+    TestCase(
+        "F", "6a. Invalid identifier starting with digit",
+        r"""
+int main() {
+    int 9var = 5;
+    return 0;
+}
+""",
+        ["INVALID_IDENTIFIER"],
+    ),
+    TestCase(
+        "F", "6b. Unclosed string literal",
+        r"""
+int main() {
+    char *msg = "Hello World;
+    return 0;
+}
+""",
+        ["UNCLOSED_STRING"],
+    ),
+]
+
 ALL_CATEGORIES: list[tuple[str, str, list[TestCase]]] = [
     ("A", "UNDECLARED VARIABLES",   CATEGORY_A),
     ("B", "INVALID OPERATIONS",     CATEGORY_B),
     ("C", "FUNCTION CALLS",         CATEGORY_C),
     ("D", "MULTIPLE DECLARATIONS",  CATEGORY_D),
     ("E", "VALID CODE",             CATEGORY_E),
+    ("F", "SYNTAX & LEXICAL ERRORS", CATEGORY_F),
 ]
 
 

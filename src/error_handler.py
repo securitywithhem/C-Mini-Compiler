@@ -30,6 +30,7 @@ from typing import Optional
 from .validator    import validate_string, ErrorKind   as SyntaxKind
 from .semantic     import analyze_string, SemanticErrorKind
 from .symbol_table import SymbolTable
+from .syntax_checker import check_syntax, SyntaxErrorKind
 
 
 # ─────────────────────────────────────────────────────────────
@@ -44,6 +45,10 @@ _CATEGORY: dict[str, str] = {
     "INVALID_ASSIGN":       "Syntax — Invalid Assignment",
     "MISSING_RETURN":       "Syntax — Missing Return",
     "UNEXPECTED_TOKEN":     "Syntax — Unexpected Token",
+    "INVALID_IDENTIFIER":  "Syntax — Invalid Identifier",
+    "UNCLOSED_STRING":     "Syntax — Unclosed String Literal",
+    "UNCLOSED_CHAR":       "Syntax — Unclosed Character Literal",
+    "MISMATCHED_QUOTES":   "Syntax — Mismatched Quotes",
     # Semantic (Phase 4)
     "UNDECLARED_VARIABLE":  "Semantic — Undeclared Variable",
     "DIVIDE_BY_ZERO":       "Semantic — Invalid Operation",
@@ -88,6 +93,19 @@ def collect_errors(source: str) -> tuple[list[UnifiedError], SymbolTable]:
             line     = d.line,
             column   = d.column,
             severity = "error",
+        ))
+
+    # Additional syntax checks
+    for d in check_syntax(source):
+        kind_name = d.kind.name
+        out.append(UnifiedError(
+            phase    = "syntax",
+            kind     = kind_name,
+            category = _CATEGORY.get(kind_name, kind_name),
+            message  = d.message,
+            line     = d.line,
+            column   = d.column,
+            severity = d.severity,
         ))
 
     # Phase 4: semantic
