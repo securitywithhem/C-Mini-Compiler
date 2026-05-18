@@ -41,14 +41,17 @@ from .syntax_checker import check_syntax, SyntaxErrorKind
 _CATEGORY: dict[str, str] = {
     # Syntax (Phase 1-3)
     "MISSING_SEMICOLON":    "Syntax — Missing Semicolon",
+    "UNCLOSED_BRACE":       "Syntax — Unclosed Brace",
+    "UNEXPECTED_BRACE":     "Syntax — Unexpected Brace",
+    "BRACE_MISMATCH":       "Syntax — Brace Mismatch",
     "UNMATCHED_BRACE":      "Syntax — Unmatched Brace",
     "INVALID_ASSIGN":       "Syntax — Invalid Assignment",
     "MISSING_RETURN":       "Syntax — Missing Return",
     "UNEXPECTED_TOKEN":     "Syntax — Unexpected Token",
-    "INVALID_IDENTIFIER":  "Syntax — Invalid Identifier",
-    "UNCLOSED_STRING":     "Syntax — Unclosed String Literal",
-    "UNCLOSED_CHAR":       "Syntax — Unclosed Character Literal",
-    "MISMATCHED_QUOTES":   "Syntax — Mismatched Quotes",
+    "INVALID_IDENTIFIER":   "Syntax — Invalid Identifier",
+    "UNCLOSED_STRING":      "Syntax — Unclosed String Literal",
+    "UNCLOSED_CHAR":        "Syntax — Unclosed Character Literal",
+    "MISMATCHED_QUOTES":    "Syntax — Mismatched Quotes",
     # Semantic (Phase 4)
     "UNDECLARED_VARIABLE":  "Semantic — Undeclared Variable",
     "DIVIDE_BY_ZERO":       "Semantic — Invalid Operation",
@@ -56,6 +59,8 @@ _CATEGORY: dict[str, str] = {
     "MULTIPLE_DECLARATION": "Semantic — Multiple Declaration",
     "UNDECLARED_FUNCTION":  "Semantic — Undeclared Function",
     "TYPE_MISMATCH":        "Semantic — Type Mismatch",
+    "UNUSED_VARIABLE":      "Semantic — Unused Variable",
+    "MISSING_BRACES":       "Semantic — Missing Braces",
 }
 
 
@@ -90,8 +95,8 @@ def collect_errors(source: str) -> tuple[list[UnifiedError], SymbolTable]:
             kind     = kind_name,
             category = _CATEGORY.get(kind_name, kind_name),
             message  = d.message,
-            line     = d.line,
-            column   = d.column,
+            line     = max(1, d.line) if d.line > 0 else d.line,
+            column   = max(1, d.column) if d.column > 0 else d.column,
             severity = "error",
         ))
 
@@ -103,8 +108,8 @@ def collect_errors(source: str) -> tuple[list[UnifiedError], SymbolTable]:
             kind     = kind_name,
             category = _CATEGORY.get(kind_name, kind_name),
             message  = d.message,
-            line     = d.line,
-            column   = d.column,
+            line     = max(1, d.line) if d.line > 0 else d.line,
+            column   = max(1, d.column) if d.column > 0 else d.column,
             severity = d.severity,
         ))
 
@@ -117,13 +122,41 @@ def collect_errors(source: str) -> tuple[list[UnifiedError], SymbolTable]:
             kind     = kind_name,
             category = _CATEGORY.get(kind_name, kind_name),
             message  = e.message,
-            line     = e.line,
-            column   = e.column,
+            line     = max(1, e.line) if e.line > 0 else e.line,
+            column   = max(1, e.column) if e.column > 0 else e.column,
             severity = "warning" if e.is_warning else "error",
         ))
 
     out.sort(key=lambda e: (e.line, e.column, 0 if e.phase == "syntax" else 1))
     return out, table
+
+
+def compile_source(source: str) -> dict:
+    """
+    Run the full pipeline and return a structured dict matching the API spec::
+
+        {
+            "success":        bool,
+            "total_errors":   int,
+            "total_warnings": int,
+            "errors":         [ {kind, message, line, column, phase, severity, category}, ... ],
+            "warnings":       [ same schema ],
+            "symbol_table":   { functions: [...], variables: [...] },
+        }
+    """
+    all_diags, table = collect_errors(source)
+
+    errors   = [asdict(e) for e in all_diags if e.severity == "error"]
+    warnings = [asdict(e) for e in all_diags if e.severity == "warning"]
+
+    return {
+        "success":        len(errors) == 0,
+        "total_errors":   len(errors),
+        "total_warnings": len(warnings),
+        "errors":         errors,
+        "warnings":       warnings,
+        "symbol_table":   table.to_dict(),
+    }
 
 
 # ─────────────────────────────────────────────────────────────
