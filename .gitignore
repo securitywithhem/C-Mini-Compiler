@@ -43,3 +43,7 @@ instance/
 
 # Logs
 *.log
+
+# Trash directory
+.trash/
+
