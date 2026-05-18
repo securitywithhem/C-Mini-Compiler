@@ -80,8 +80,15 @@ def compile_code():
         # Sort all errors by line then column
         errors.sort(key=lambda x: (x['line'], x['column']))
 
+        # Safeguard: Limit the number of errors returned to avoid UI lag
+        total_found = len(errors)
+        if total_found > 100:
+            errors = errors[:100]
+
         return jsonify({
-            'errors':       errors,
+            'success': total_found == 0,
+            'errors': errors,
+            'total_errors': total_found,
             'symbol_table': symbol_table.to_dict(),
         }), 200
 
@@ -136,4 +143,4 @@ if __name__ == '__main__':
 
 Starting server...
     """)
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    app.run(debug=True, port=5001, host='0.0.0.0')

@@ -3,59 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C Mini-Compiler | Syntax Error Detection</title>
+    <title>C-Mini Compiler | Pro Edition</title>
     
-    <!-- Stylesheets -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material-darker.min.css">
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/material-palenight.min.css">
+    
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Header -->
-    <div class="header">
+    <header class="header">
         <div class="header-left">
-            <h1>⚙️ C Mini-Compiler</h1>
-            <p>Lexical → Syntax → Semantic Analysis</p>
+            <div class="logo-container">C</div>
+            <div>
+                <h1>C-Mini Compiler</h1>
+                <p>Advanced Diagnostic Engine</p>
+            </div>
         </div>
         <div class="header-right">
             <button id="compileBtn" class="compile-btn">
-                <span id="compileBtnText">⚙️ Compile</span>
+                <i class="fas fa-play"></i>
+                <span id="compileBtnText">Compile & Run</span>
             </button>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Container -->
-    <div class="main-container">
-        <!-- Left: Code Editor -->
-        <div class="editor-pane">
-            <div class="pane-header">📝 Source Code</div>
-            <div class="editor-wrapper" id="editor"></div>
-        </div>
+    <main class="main-container">
+        <!-- Editor Section -->
+        <section class="glass-pane editor-pane">
+            <div class="pane-header">
+                <div class="pane-title">Source Editor</div>
+                <div id="saveStatus" style="font-size: 10px; color: var(--text-muted);">Autosaved</div>
+            </div>
+            <div class="editor-wrapper">
+                <textarea id="editor"></textarea>
+            </div>
+        </section>
 
-        <!-- Right: Diagnostics Panel -->
-        <div class="error-pane">
-            <div class="pane-header">🔍 Diagnostics</div>
-            <div class="error-list" id="errorList">
+        <!-- Diagnostics Section -->
+        <section class="glass-pane error-pane">
+            <div class="pane-header">
+                <div class="pane-title">Diagnostics</div>
+            </div>
+            <div id="errorList" class="error-list">
+                <!-- Initial Empty State -->
                 <div class="empty-state">
-                    <div class="empty-state-icon">👈</div>
-                    <div class="empty-state-title">Write C code to compile</div>
-                    <div class="empty-state-desc">
-                        Click "Compile" or press <kbd>Ctrl+Enter</kbd> to check for syntax errors
-                    </div>
+                    <div class="empty-state-icon">🚀</div>
+                    <div style="font-weight: 600; color: var(--text-bright);">Ready to Compile</div>
+                    <div style="font-size: 13px; color: var(--text-muted);">Write some C code and hit 'Compile' to see analysis.</div>
                 </div>
             </div>
-            <div class="error-count" id="errorCount">Ready</div>
-        </div>
-    </div>
+            <div id="errorCount" class="error-count">
+                <div class="status-indicator">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="statusText">System Idle</span>
+                </div>
+            </div>
+        </section>
+    </main>
 
-    <!-- CodeMirror Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/clike.min.js"></script>
-
-    <!-- Application Script -->
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

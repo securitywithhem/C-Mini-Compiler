@@ -1,210 +1,206 @@
 /**
- * C Mini-Compiler Frontend
- * Handles code editing, compilation, and error display
+ * C-Mini Compiler - Frontend Logic
+ * Modernized for stability, performance, and rich aesthetics.
  */
 
-// ────────────────────────────────────────────────────────────
-// CodeMirror Editor Setup
-// ────────────────────────────────────────────────────────────
-
-const editor = CodeMirror(document.getElementById('editor'), {
-    mode: 'text/x-csrc',
-    theme: 'material-darker',
-    lineNumbers: true,
-    indentUnit: 4,
-    indentWithTabs: false,
-    lineWrapping: true,
-    matchBrackets: true,
-    autoCloseBrackets: true,
-    highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true },
-    styleActiveLine: true,
-    value: `#include <stdio.h>
-
-int multiply(int a, int b) {
-    return a * b;
-}
-
-int main(void) {
-    int x = 5, y = 10;
-    int result = multiply(x, y);
-    printf("Result: %d\\n", result);
-    return 0;
-}`
-});
-
-// ────────────────────────────────────────────────────────────
-// Error Rendering & Line Marking
-// ────────────────────────────────────────────────────────────
-
-let diagnosticMarkers = [];
-
-function clearErrorMarkers() {
-    diagnosticMarkers.forEach(marker => marker.clear());
-    diagnosticMarkers = [];
-}
-
-function renderErrors(diagnostics) {
+document.addEventListener('DOMContentLoaded', () => {
+    // ── DOM Elements ──────────────────────────────────────────
+    const editorArea = document.getElementById('editor');
+    const compileBtn = document.getElementById('compileBtn');
+    const compileBtnText = document.getElementById('compileBtnText');
     const errorList = document.getElementById('errorList');
     const errorCount = document.getElementById('errorCount');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
 
-    clearErrorMarkers();
+    // ── Initialize CodeMirror ──────────────────────────────────
+    const editor = CodeMirror.fromTextArea(editorArea, {
+        mode: 'text/x-csrc',
+        theme: 'material-palenight',
+        lineNumbers: true,
+        autoCloseBrackets: true,
+        matchBrackets: true,
+        tabSize: 4,
+        indentUnit: 4,
+        lineWrapping: true,
+        extraKeys: {
+            "Ctrl-Enter": compileCode,
+            "Cmd-Enter": compileCode
+        }
+    });
 
-    if (diagnostics.length === 0) {
-        errorList.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">✓</div>
-                <div class="success-badge">No errors found</div>
-                <div class="empty-state-desc">Code is syntactically correct!</div>
-            </div>
-        `;
-        errorCount.textContent = '✓ Clean';
-        errorCount.classList.remove('has-errors');
-        errorCount.classList.add('success');
-        return;
+    // Default code to get started
+    const defaultCode = `int main() {
+    int a = 10;
+    int b = 20;
+    int sum = a + b;
+    // Try adding errors like:
+    // int x = ;
+    return 0;
+}`;
+    
+    // Load from localStorage or use default
+    const savedCode = localStorage.getItem('mini_c_code');
+    editor.setValue(savedCode || defaultCode);
+
+    // ── Diagnostic State ───────────────────────────────────────
+    let markers = [];
+
+    function clearMarkers() {
+        markers.forEach(m => m.clear());
+        markers = [];
+        // Clear line classes
+        for (let i = 0; i < editor.lineCount(); i++) {
+            editor.removeLineClass(i, 'background', 'diagnostic-line');
+        }
     }
 
-    // Group errors by type
-    const byKind = {};
-    diagnostics.forEach(d => {
-        byKind[d.kind] = (byKind[d.kind] || 0) + 1;
-    });
-
-    // Render error list
-    errorList.innerHTML = diagnostics.map((d, i) => `
-        <div class="error-item ${getErrorClass(d.kind)}" data-index="${i}">
-            <div class="error-kind">${d.kind.replace(/_/g, ' ')}</div>
-            <div class="error-message">${escapeHtml(d.message)}</div>
-            <div class="error-line">Line ${d.line}, Col ${d.column}</div>
-        </div>
-    `).join('');
-
-    // Add click handlers to jump to error
-    document.querySelectorAll('.error-item').forEach((el, i) => {
-        el.addEventListener('click', () => {
-            const line = diagnostics[i].line;
-            const col = diagnostics[i].column;
-            editor.setCursor(line - 1, col - 1);
-            editor.focus();
-        });
-    });
-
-    // Mark error lines in editor
-    diagnostics.forEach(d => {
-        const lineHandle = editor.markText(
-            { line: d.line - 1, ch: 0 },
-            { line: d.line - 1, ch: null },
-            {
-                className: 'diagnostic-line',
-                title: d.message,
-            }
+    function highlightError(line, column) {
+        const lineIdx = Math.max(0, line - 1);
+        const colIdx = Math.max(0, column - 1);
+        
+        // Highlight line with smooth background
+        editor.addLineClass(lineIdx, 'background', 'diagnostic-line');
+        
+        // Add text marker
+        const marker = editor.markText(
+            {line: lineIdx, ch: colIdx},
+            {line: lineIdx, ch: colIdx + 2}, // highlight a few chars
+            {className: 'cm-error-underline'}
         );
-        diagnosticMarkers.push(lineHandle);
-    });
-
-    // Update error count
-    const counts = Object.entries(byKind)
-        .map(([kind, count]) => `${count} ${kind.toLowerCase()}`)
-        .join(' • ');
-    errorCount.innerHTML = `⚠️ ${counts}`;
-    errorCount.classList.add('has-errors');
-    errorCount.classList.remove('success');
-}
-
-function getErrorClass(kind) {
-    if (kind === 'MISSING_RETURN' || kind === 'MISSING_SEMICOLON') {
-        return 'warning';
+        markers.push(marker);
+        
+        editor.scrollIntoView({line: lineIdx, ch: 0}, 200);
     }
-    return 'error';
-}
 
-function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
-}
+    // ── API Communication ──────────────────────────────────────
+    async function compileCode() {
+        const code = editor.getValue();
+        localStorage.setItem('mini_c_code', code);
 
-// ────────────────────────────────────────────────────────────
-// Compilation & API
-// ────────────────────────────────────────────────────────────
+        // UI Loading State
+        compileBtn.disabled = true;
+        const icon = compileBtn.querySelector('i');
+        const originalIconClass = icon.className;
+        icon.className = 'fas fa-circle-notch loading-icon';
+        compileBtnText.textContent = 'Analyzing...';
+        
+        statusText.textContent = 'Compiling...';
+        statusDot.style.background = 'var(--warning-yellow)';
+        statusDot.classList.add('pulse'); // If pulse animation is defined
 
-const compileBtn = document.getElementById('compileBtn');
-const compileBtnText = document.getElementById('compileBtnText');
+        try {
+            const response = await fetch('http://localhost:5001/compile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            });
 
-async function compile() {
-    const code = editor.getValue();
-    const apiUrl = 'http://localhost:5000/compile';
+            if (!response.ok) throw new Error(`Backend Error (${response.status})`);
 
-    // UI feedback
-    compileBtn.classList.add('loading');
-    compileBtn.disabled = true;
-    compileBtnText.textContent = '⏳ Compiling...';
+            const data = await response.json();
+            // The backend returns { errors: [...] } or { diagnostics: [...] }
+            // Let's handle both for compatibility
+            const results = data.errors || data.diagnostics || [];
+            renderDiagnostics(results);
+        } catch (err) {
+            console.error('Compilation failed:', err);
+            renderErrorItem('Connection Error', err.message);
+        } finally {
+            compileBtn.disabled = false;
+            icon.className = originalIconClass;
+            compileBtnText.textContent = 'Compile & Run';
+        }
+    }
 
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code }),
-        });
+    // ── Diagnostic Rendering ───────────────────────────────────
+    function renderDiagnostics(diagnostics) {
+        errorList.innerHTML = '';
+        clearMarkers();
 
-        if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
+        if (!diagnostics || diagnostics.length === 0) {
+            renderSuccessState();
+            return;
         }
 
-        const data = await response.json();
-        renderErrors(data.errors || []);
+        // Performance Optimization: Virtual Truncation
+        // Browsers struggle with thousands of DOM nodes.
+        const displayLimit = 50;
+        const toDisplay = diagnostics.slice(0, displayLimit);
 
-    } catch (error) {
-        console.error('Compilation error:', error);
-        document.getElementById('errorList').innerHTML = `
-            <div class="error-item error">
-                <div class="error-kind">Connection Error</div>
-                <div class="error-message">${escapeHtml(error.message)}</div>
-                <div class="error-line" style="margin-top: 8px; color: #6e7681;">
-                    Make sure Flask backend is running:<br>
-                    <code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">python backend.py</code>
+        const fragment = document.createDocumentFragment();
+        
+        toDisplay.forEach((diag, index) => {
+            const item = document.createElement('div');
+            const isWarning = diag.kind && diag.kind.toLowerCase().includes('warning');
+            item.className = `error-item ${isWarning ? 'warning' : ''}`;
+            
+            // Staggered animation
+            item.style.animationDelay = `${index * 0.03}s`;
+
+            item.innerHTML = `
+                <div class="error-kind">${diag.kind ? diag.kind.replace(/_/g, ' ') : 'SYNTAX ERROR'}</div>
+                <div class="error-message">${escapeHtml(diag.message)}</div>
+                <div class="error-line">Line ${diag.line}, Column ${diag.column}</div>
+            `;
+
+            item.onclick = () => {
+                editor.setCursor(diag.line - 1, diag.column - 1);
+                editor.focus();
+                highlightError(diag.line, diag.column);
+            };
+
+            fragment.appendChild(item);
+        });
+
+        errorList.appendChild(fragment);
+
+        // Update Footer Stats
+        statusText.textContent = `${diagnostics.length} issues detected`;
+        statusDot.style.background = 'var(--error-red)';
+        
+        if (diagnostics.length > displayLimit) {
+            const info = document.createElement('div');
+            info.style.padding = '15px';
+            info.style.fontSize = '12px';
+            info.style.color = 'var(--text-muted)';
+            info.style.textAlign = 'center';
+            info.innerHTML = `<i>+ ${diagnostics.length - displayLimit} more errors truncated for speed</i>`;
+            errorList.appendChild(info);
+        }
+    }
+
+    function renderSuccessState() {
+        errorList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🛡️</div>
+                <div class="success-badge">Code Clean</div>
+                <div style="font-size: 13px; color: var(--text-muted); margin-top: 10px;">
+                    No issues found in current analysis.
                 </div>
             </div>
         `;
-        document.getElementById('errorCount').textContent = '✗ Error';
-    } finally {
-        compileBtn.classList.remove('loading');
-        compileBtn.disabled = false;
-        compileBtnText.textContent = '⚙️ Compile';
+        statusText.textContent = 'System Healthy';
+        statusDot.style.background = 'var(--accent-primary)';
     }
-}
 
-// Attach compile button
-compileBtn.addEventListener('click', compile);
+    function renderErrorItem(kind, msg) {
+        errorList.innerHTML = `
+            <div class="error-item">
+                <div class="error-kind">${kind}</div>
+                <div class="error-message">${msg}</div>
+            </div>
+        `;
+        statusText.textContent = 'System Fault';
+        statusDot.style.background = 'var(--error-red)';
+    }
 
-// Auto-compile on Ctrl+Enter or Cmd+Enter
-editor.setOption('extraKeys', {
-    'Ctrl-Enter': compile,
-    'Cmd-Enter': compile,
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ── Listeners ─────────────────────────────────────────────
+    compileBtn.onclick = compileCode;
 });
-
-// ────────────────────────────────────────────────────────────
-// Initialization
-// ────────────────────────────────────────────────────────────
-
-console.log('%c🔨 C Mini-Compiler Frontend Loaded', 'color: #4ec9b0; font-size: 14px; font-weight: bold;');
-console.log('Backend API: http://localhost:5000/compile');
-console.log('Press Ctrl+Enter to compile');
-
-// Show welcome message
-document.getElementById('errorList').innerHTML = `
-    <div class="empty-state">
-        <div class="empty-state-icon">👨‍💻</div>
-        <div class="success-badge">Ready</div>
-        <div class="empty-state-desc">
-            Click "Compile" or press <kbd>Ctrl+Enter</kbd><br>
-            to check your code
-        </div>
-    </div>
-`;

@@ -191,11 +191,15 @@ class ValidatingParser(Parser):
     def parse(self) -> ProgramNode:
         decls: list[ASTNode] = []
         while not self._s.is_at_end():
+            start_pos = self._s._pos
             try:
                 decls.append(self._top_decl())
             except CSyntaxError as exc:
                 self._classify_and_add(exc)
                 self._synchronize()
+                # Ensure we advance to avoid infinite loops if synchronize didn't move
+                if self._s._pos == start_pos and not self._s.is_at_end():
+                    self._s.advance()
         node = ProgramNode(decls)
         node.line = 1
         return node
@@ -222,6 +226,7 @@ class ValidatingParser(Parser):
         stmts: list[ASTNode] = []
 
         while not self._s.check_value("}") and not self._s.is_at_end():
+            start_pos = self._s._pos
             try:
                 s = self._stmt()
                 if s is not None:
@@ -229,6 +234,9 @@ class ValidatingParser(Parser):
             except CSyntaxError as exc:
                 self._classify_and_add(exc)
                 self._synchronize()
+                # Ensure progress
+                if self._s._pos == start_pos and not self._s.is_at_end():
+                    self._s.advance()
 
         # Missing closing brace
         if self._s.is_at_end():
