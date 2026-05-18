@@ -43,7 +43,12 @@ from .parser import (
 
 class ErrorKind(Enum):
     MISSING_SEMICOLON = auto()
-    UNMATCHED_BRACE   = auto()
+    # Brace/paren/bracket balance — three distinct sub-kinds
+    UNCLOSED_BRACE    = auto()   # opener with no matching closer  (report at opener)
+    UNEXPECTED_BRACE  = auto()   # closer with no matching opener  (report at closer)
+    BRACE_MISMATCH    = auto()   # wrong closer type, e.g. '(' + ']' (report at closer)
+    # Legacy alias kept for any code that still references UNMATCHED_BRACE
+    UNMATCHED_BRACE   = auto()   # fallback / generic
     INVALID_ASSIGN    = auto()
     MISSING_RETURN    = auto()
     UNEXPECTED_TOKEN  = auto()
@@ -51,6 +56,9 @@ class ErrorKind(Enum):
 
 _KIND_LABEL = {
     ErrorKind.MISSING_SEMICOLON: "missing ';'",
+    ErrorKind.UNCLOSED_BRACE:    "unclosed brace",
+    ErrorKind.UNEXPECTED_BRACE:  "unexpected brace",
+    ErrorKind.BRACE_MISMATCH:    "brace mismatch",
     ErrorKind.UNMATCHED_BRACE:   "unmatched brace",
     ErrorKind.INVALID_ASSIGN:    "invalid assignment",
     ErrorKind.MISSING_RETURN:    "missing return",
@@ -80,11 +88,18 @@ _CLOSE = {v: k for k, v in _OPEN.items()}
 
 def check_brace_balance(tokens: list[Token]) -> list[Diagnostic]:
     """
-    Single-pass stack scan: every opener is pushed, every closer either
-    matches the top or is reported.  Unclosed openers are reported at EOF.
+    Single-pass stack scan — precise sub-kind for every brace error.
+
+    Sub-kinds
+    ---------
+    UNCLOSED_BRACE   – opener with no matching closer (reported at the opener)
+    UNEXPECTED_BRACE – closer with no matching opener (reported at the closer)
+    BRACE_MISMATCH   – wrong closer, e.g. '(' closed with ']' (at the closer)
+
+    Every diagnostic has column ≥ 1.
     """
     diagnostics: list[Diagnostic] = []
-    stack: list[Token] = []   # tokens of unmatched openers
+    stack: list[Token] = []   # tokens of currently-open openers
 
     for tok in tokens:
         if tok.type is not TokenType.SEPARATOR:
@@ -94,32 +109,37 @@ def check_brace_balance(tokens: list[Token]) -> list[Diagnostic]:
             stack.append(tok)
 
         elif tok.value in _CLOSE:
-            expected_open = _CLOSE[tok.value]
+            expected_open = _CLOSE[tok.value]   # e.g. ')' → '('
+            col = max(1, tok.column)
+
             if not stack:
+                # Closer with nothing on the stack
                 diagnostics.append(Diagnostic(
-                    ErrorKind.UNMATCHED_BRACE,
-                    f"unexpected '{tok.value}' — no matching '{expected_open}'",
-                    tok.line, tok.column,
+                    ErrorKind.UNEXPECTED_BRACE,
+                    f"Unexpected '{tok.value}' (no matching '{expected_open}')",
+                    tok.line, col,
                 ))
             elif stack[-1].value != expected_open:
+                # Wrong closer type
                 opener = stack[-1]
                 diagnostics.append(Diagnostic(
-                    ErrorKind.UNMATCHED_BRACE,
-                    f"'{tok.value}' closes '{opener.value}' opened at "
-                    f"line {opener.line}, col {opener.column}",
-                    tok.line, tok.column,
+                    ErrorKind.BRACE_MISMATCH,
+                    f"'{tok.value}' does not close '{opener.value}' opened at "
+                    f"line {opener.line}, col {max(1, opener.column)}",
+                    tok.line, col,
                 ))
-                stack.pop()
+                stack.pop()   # consume opener (best-effort recovery)
             else:
-                stack.pop()
+                stack.pop()   # matched — consume
 
+    # Anything remaining on the stack was never closed
     for opener in stack:
-        closing = _OPEN[opener.value]
+        closing  = _OPEN[opener.value]
+        open_col = max(1, opener.column)
         diagnostics.append(Diagnostic(
-            ErrorKind.UNMATCHED_BRACE,
-            f"'{opener.value}' at line {opener.line}, col {opener.column} "
-            f"was never closed with '{closing}'",
-            opener.line, opener.column,
+            ErrorKind.UNCLOSED_BRACE,
+            f"Unclosed '{opener.value}' (missing '{closing}')",
+            opener.line, open_col,
         ))
 
     return diagnostics
@@ -222,6 +242,7 @@ class ValidatingParser(Parser):
             node.line = line
             return node
 
+        open_tok = self._s.peek()  # the '{' token — used to report its position
         self._s.advance()  # consume '{'
         stmts: list[ASTNode] = []
 
@@ -241,9 +262,9 @@ class ValidatingParser(Parser):
         # Missing closing brace
         if self._s.is_at_end():
             self._add(
-                ErrorKind.UNMATCHED_BRACE,
-                "reached end of file without closing '}'",
-                None,
+                ErrorKind.UNCLOSED_BRACE,
+                "Unclosed '{' (missing '}')",
+                open_tok,  # report at opener so column ≥ 1
             )
         else:
             self._s.advance()  # consume '}'
@@ -580,7 +601,10 @@ def validate_file(filename: str) -> list[Diagnostic]:
 
 _KIND_COLOR = {
     ErrorKind.MISSING_SEMICOLON: "\033[33m",  # yellow
-    ErrorKind.UNMATCHED_BRACE:   "\033[31m",  # red
+    ErrorKind.UNCLOSED_BRACE:    "\033[31m",  # red
+    ErrorKind.UNEXPECTED_BRACE:  "\033[31m",  # red
+    ErrorKind.BRACE_MISMATCH:    "\033[31m",  # red
+    ErrorKind.UNMATCHED_BRACE:   "\033[31m",  # red (legacy)
     ErrorKind.INVALID_ASSIGN:    "\033[35m",  # magenta
     ErrorKind.MISSING_RETURN:    "\033[36m",  # cyan
     ErrorKind.UNEXPECTED_TOKEN:  "\033[31m",  # red
