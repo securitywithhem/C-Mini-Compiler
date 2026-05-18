@@ -62,6 +62,8 @@ class SemanticErrorKind(Enum):
     MULTIPLE_DECLARATION = auto()
     UNDECLARED_FUNCTION  = auto()
     TYPE_MISMATCH        = auto()   # reported as warning
+    UNUSED_VARIABLE      = auto()   # reported as warning
+    MISSING_BRACES       = auto()   # control-flow body without braces (warning)
 
 
 _KIND_LABEL: dict[SemanticErrorKind, str] = {
@@ -71,6 +73,8 @@ _KIND_LABEL: dict[SemanticErrorKind, str] = {
     SemanticErrorKind.MULTIPLE_DECLARATION: "multiple declaration",
     SemanticErrorKind.UNDECLARED_FUNCTION:  "undeclared function",
     SemanticErrorKind.TYPE_MISMATCH:        "type mismatch",
+    SemanticErrorKind.UNUSED_VARIABLE:      "unused variable",
+    SemanticErrorKind.MISSING_BRACES:       "missing braces",
 }
 
 
@@ -114,6 +118,9 @@ class SemanticAnalyzer(Visitor):
         self.errors:        list[SemanticError]      = []
         self.symbol_table:  SymbolTable              = SymbolTable()
         self._current_func: Optional[FunctionEntry]  = None
+        # Track which variable names have been *read* (not just declared)
+        # Key: (name, scope_level, line) to distinguish shadowed variables
+        self._used_vars:    set[int]                 = set()  # id of VariableEntry
 
     # ── Error helpers ──────────────────────────────────────────
 
@@ -375,7 +382,9 @@ class SemanticAnalyzer(Visitor):
         n.operand.accept(self)
 
     def visit_IdentifierNode(self, n: IdentifierNode) -> None:
-        if self.symbol_table.lookup_variable(n.name) is not None:
+        entry = self.symbol_table.lookup_variable(n.name)
+        if entry is not None:
+            self._used_vars.add(id(entry))  # mark as used
             return
         if self.symbol_table.lookup_function(n.name) is not None:
             return  # Allow naked function names (e.g. function pointers)
@@ -384,6 +393,36 @@ class SemanticAnalyzer(Visitor):
             f"undeclared variable '{n.name}'",
             n.line,
         )
+
+    # ── Unused-variable check (called after full walk) ──────────
+
+    def _check_unused_variables(self) -> None:
+        """
+        After the whole AST has been walked, emit UNUSED_VARIABLE warnings
+        for every VariableEntry that was never read.
+
+        Exclusions:
+        - Function parameters (scope_level == 1): common and noisy.
+        - Variables whose names begin with '_': convention = intentionally unused.
+        - Loop counter variables named 'i', 'j', 'k', 'n', 'm': very common idiom.
+        """
+        _COMMON_LOOP_VARS = frozenset({"i", "j", "k", "n", "m", "idx", "count"})
+        for entry in self.symbol_table.all_variables():
+            if id(entry) in self._used_vars:
+                continue
+            if entry.scope_level <= 1:            # global or parameter scope
+                continue
+            if entry.name.startswith("_"):        # intentionally unused
+                continue
+            if entry.name in _COMMON_LOOP_VARS:   # loop counters
+                continue
+            self._err(
+                SemanticErrorKind.UNUSED_VARIABLE,
+                f"variable '{entry.name}' is declared but never used",
+                entry.line,
+                entry.column or 1,
+                warning=True,
+            )
 
     # Literal leaf nodes — nothing to check
     def visit_IntLiteralNode(self,    n: IntLiteralNode)    -> None: pass
@@ -430,6 +469,8 @@ def analyze_ast(ast: ProgramNode) -> tuple[list[SemanticError], SymbolTable]:
     """Run semantic analysis on an already-parsed AST."""
     analyzer = SemanticAnalyzer()
     analyzer.visit_ProgramNode(ast)
+    # Post-walk unused-variable check
+    analyzer._check_unused_variables()
     return (
         sorted(analyzer.errors, key=lambda e: (e.line, e.column)),
         analyzer.symbol_table,
