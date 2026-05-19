@@ -51,14 +51,42 @@ Visit **http://localhost:5000** in your browser.
 - 📍 **Error positioning** — Line and column numbers for each error
 - 🎯 **Click to jump** — Click an error to go to that line
 
-### Errors Detected
-| Error Type | Example |
-|---|---|
-| **MISSING_SEMICOLON** | `int x = 5` (no `;`) |
-| **UNMATCHED_BRACE** | Extra `}` or missing `{` |
-| **INVALID_ASSIGN** | `a + b = 10;` (non-lvalue) |
-| **MISSING_RETURN** | Non-void function with no return |
-| **UNEXPECTED_TOKEN** | Unknown keyword or syntax |
+### Errors Detected & Solved by the Compiler
+
+Our compiler detects a wide range of errors across different phases (Syntax and Semantic analysis). Here is the complete list of errors it handles, explained in simple terms:
+
+#### 1. Syntax Errors (Phases 1-3)
+These are structural issues where the code doesn't follow the grammar rules of C.
+
+| Error Type | Simple Explanation | Example |
+|---|---|---|
+| **MISSING_SEMICOLON** | A statement is missing a semicolon (`;`) at the end. | `int x = 5` |
+| **UNCLOSED_BRACE** | A block of code was started with `{` but never closed with `}`. | `int main() { int x = 0; ` |
+| **UNEXPECTED_BRACE** | Found a closing brace `}` without a matching opening `{`. | `int main() { } }` |
+| **BRACE_MISMATCH** | The opening and closing brackets/braces don't match up properly. | `int arr[5};` |
+| **UNMATCHED_BRACE** | General error for unbalanced curly braces. | Extra `}` or missing `{` |
+| **INVALID_ASSIGN** | Trying to assign a value to something that can't be assigned to. | `a + b = 10;` |
+| **MISSING_RETURN** | A function is expected to return a value, but lacks a `return`. | `int calc() { int x = 5; }` |
+| **UNEXPECTED_TOKEN** | Found a word, symbol, or syntax it doesn't recognize or expect here. | `int 5x = 10;` |
+| **INVALID_IDENTIFIER** | A variable/function name breaks naming rules (e.g., starts with a number). | `int 1stNumber = 5;` |
+| **UNCLOSED_STRING** | A string literal is missing its closing quote (`"`). | `char* s = "Hello;` |
+| **UNCLOSED_CHAR** | A character literal is missing its closing quote (`'`). | `char c = 'a;` |
+| **MISMATCHED_QUOTES** | String or char quotes are used improperly or mismatched. | `char c = "a';` |
+
+#### 2. Semantic Errors (Phase 4)
+These are logical issues where the code follows grammar rules, but makes invalid operations.
+
+| Error Type | Simple Explanation | Example |
+|---|---|---|
+| **UNDECLARED_VARIABLE** | Trying to use a variable before creating (declaring) it. | `x = 10;` (where `x` was never declared) |
+| **DIVIDE_BY_ZERO** | Attempting to divide a number by zero. | `int res = 10 / 0;` |
+| **ARGUMENT_MISMATCH** | Passing the wrong number of arguments to a function. | `add(5)` (when `add` needs 2 numbers) |
+| **MULTIPLE_DECLARATION**| Declaring a variable/function with the same name more than once. | `int x = 5; int x = 10;` |
+| **UNDECLARED_FUNCTION** | Trying to call a function that hasn't been defined yet. | `calculate();` |
+| **TYPE_MISMATCH** | Assigning a value of one type to a variable of a different type. | `int x = "hello";` |
+| **UNUSED_VARIABLE** | A variable was declared but never used in the program. | `int count = 0;` (and never used) |
+| **MISSING_BRACES** | Suggests adding braces `{}` around control flow statements (Warning). | `if (x) doSomething();` |
+
 
 ---
 
